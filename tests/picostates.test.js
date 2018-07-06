@@ -45,7 +45,7 @@ describe("Picostates", () => {
     });
   });
   describe('Something containing something else', function() {
-    class Something extends Any {
+    class Something {
       any = create(Any, "ohai");
     }
     describe('when created with something else', function() {

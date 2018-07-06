@@ -27,9 +27,7 @@ export default parameterized(T => class ArrayType {
   }
 
   map(fn) {
-    return create(this.constructor, this.state.reduce((mapped, value, index) => {
-      return mapped.concat(fn(Meta.source(this[index])));
-    },[]));
+    return this.state.map((value, index) => fn(Meta.source(this[index])));
   }
 
   clear() {
@@ -46,16 +44,12 @@ export default parameterized(T => class ArrayType {
           picostate.state = [value];
         }
         return picostate.state.reduce((picostate, member, index) => {
-          let child;
-          if (member && member.constructor.isPicostateType) {
-            child = member;
-          } else {
-            child = create(T, member);
-          }
-          return set(SubstateAt(index), child, picostate);
+          var created = create(T).set(member);
+          return set(SubstateAt(index), created, picostate);
         }, picostate);
       }
     });
+
     Filterable.instance(this, {
       filter(fn, array) {
         return array.state.reduce((filtered, item, index) => {

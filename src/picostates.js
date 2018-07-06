@@ -13,7 +13,7 @@ Picostate.instance(Object, {
   assemble(Type, picostate, value) {
     return foldl((picostate, { key, value: child }) => {
       let substate = value != null && value[key] != null ? child.set(value[key]) : child;
-      return set(SubstateAt(key), substate, picostate)
+      return set(SubstateAt(key), substate, picostate);
     }, picostate, new Type());
   }
 })
@@ -51,7 +51,12 @@ const toPicoType = stable(function toPicoType(Type) {
         microstate = create(this.constructor, value);
       }
       let meta = Meta.get(this);
-      return set(meta.lens, microstate, meta.context);
+
+      if (meta.parent) {
+        return meta.parent.set(set(ValueAt(meta.name), microstate.state, meta.parent.state));
+      } else {
+        return microstate;
+      }
     }
   }
   let descriptors = Object.getOwnPropertyDescriptors(Type.prototype);
@@ -83,13 +88,6 @@ function isPicostate(value) {
 export class Any { }
 
 export class Meta {
-  constructor(attrs = {}) {
-    this.path = attrs.path || [];
-  }
-
-  get lens() {
-    return SubstatePath(this.path);
-  }
 
   static get(object) {
     if (object == null) {
@@ -104,11 +102,6 @@ export class Meta {
 
   static map(fn, object) {
     return over(Meta.lens, meta => append(meta, fn(meta)), object);
-  }
-
-  static treemap(fn, object) {
-    let children = map(child => isPicostate(child) ? Meta.treemap(fn, child) : child, object);
-    return append(Meta.map(fn, object), children);
   }
 
   static lookup(object) {
@@ -160,30 +153,23 @@ export function SubstateAt(name) {
     if (substate === source) {
       return picostate;
     } else {
-      let { path } = Meta.get(picostate);
 
-      var contextualized = Meta.map(meta => ({ source: substate }), substate);
+      function recontextualize(name, childPicostate, parentFn) {
+        let children = map((child, name) => isPicostate(child) ? recontextualize(name, child, () => contextualized) : child, childPicostate);
+        let contextualized = append(Meta.map(() => ({ name, source: childPicostate, get parent() { return parentFn() } }), childPicostate), children);
+        return contextualized;
+      }
 
-      let whole = append(picostate, {
-        [name]: Meta.treemap(meta => ({ path: [name].concat(meta.path) }), contextualized),
+      let next = append(picostate, {
+        [name]: recontextualize(name, substate, () => next),
         state: set(ValueAt(name), substate.state, picostate.state)
-      })
-      let next = Meta.treemap(meta => ({ context: next }), whole);
+      });
       return next;
     }
   };
 
   return Lens(getter, setter);
 }
-
-import { compose, transparent } from './lens';
-
-export function SubstatePath(path = []) {
-  return foldl((lens, key) => {
-    return compose(lens, SubstateAt(key))
-  }, transparent, path);
-}
-
 
 export function parameterized(fn) {
 

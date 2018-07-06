@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 
 import ArrayType from '../src/array';
-import { create } from '../src/picostates';
+import { create, Meta } from '../src/picostates';
 
 describe("ArrayType", function() {
   describe("when unparameterized", function() {
